@@ -1,0 +1,9 @@
+// Cloudflare Workers (static assets only, no server code).
+// Deploy: npm run build && npx wrangler deploy
+{
+  "name": "supply-run",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}
