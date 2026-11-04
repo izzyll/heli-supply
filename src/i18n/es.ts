@@ -62,7 +62,7 @@ export const es: Record<keyof typeof en, string> = {
   up_padding: 'Acolchado de cajas', up_padding_d: 'Las cajas aguantan aterrizajes más duros.',
   up_chute: 'Paracaídas', up_chute_d: 'Desbloquea lanzamientos con paracaídas (soltar a más de 18 m). Más niveles: apertura más rápida y menos deriva.',
   up_computer: 'Computadora de lanzamiento', up_computer_d: 'N1: la predicción incluye el viento. N2: muestra la velocidad de impacto.',
-  up_radar: 'Radar', up_radar_d: 'Muestra alijos de suministros en el minimapa.',
+  up_radar: 'Radar', up_radar_d: 'Muestra alijos de suministros y sitios SAM enemigos desde más lejos en el minimapa.',
   up_payout: 'Bono de contrato', up_payout_d: '+5% a todos los pagos de entrega.',
   up_income: 'Logística de base', up_income_d: '+$15/min de ingreso pasivo de la base (también sin conexión).',
 
@@ -125,4 +125,41 @@ export const es: Record<keyof typeof en, string> = {
 
   map_title: 'MAPA', map_close: '[M] cerrar', map_locked: 'Bloqueado — nivel {n}',
   rec_title: 'Rescate', rec_desc: 'Vuelo de rescate a la FOB: -{cash}',
+
+  // defensa antiaérea enemiga y bengalas
+  warn_radar: 'RADAR SAM RASTREANDO — {p}%', warn_locked: 'BLOCAJE DE MISIL', warn_missile: 'MISIL ENTRANTE — {dir}',
+  dir_ahead: 'DELANTE', dir_behind: 'DETRÁS', dir_left: 'IZQUIERDA', dir_right: 'DERECHA',
+  hint_flares: '[Q] Bengalas ({n}) · vuela bajo tras el terreno para romper el blocaje',
+  toast_missile_hit: '💥 ¡Impacto de misil!', toast_no_flares: 'Sin bengalas — compra más en el Hangar', toast_aa_new: '⚠ La defensa antiaérea enemiga crece — nuevo sitio SAM detectado',
+  cargo_flares: 'Bengalas', cargo_seats: 'Asientos', cr_cause_missile: 'Derribado por un SAM',
+  k_flare: 'Q — Lanzar bengalas (señuelo para misiles)', bt_flare: 'Lanzar bengalas',
+  h_counter: 'Contramedidas', h_flares: 'Bengalas señuelo',
+  h_flares_d: 'Pulsa [Q] para lanzar bengalas: los radares SAM pierden el blocaje y los misiles en vuelo pueden perseguir la bengala.',
+  h_flares_have: 'A bordo: {n}/{m}', h_flares_each: '{cash} c/u', h_flares_buy: 'Comprar {n}', h_flares_fill: 'Llenar',
+  up_flares: 'Dispensador de bengalas', up_flares_d: '+4 bengalas a bordo y +5% de probabilidad de que cada bengala engañe a un misil.',
+  st_missilesEvaded: 'Misiles evadidos', st_missileHits: 'Impactos de misil', st_soldiers: 'Soldados desplegados',
+  ach_soldiers_1: 'Botas en tierra', ach_soldiers_50: 'Transporte de tropas (50 soldados)', ach_evaded_1: 'Hoy no', ach_evaded_10: 'Intocable (10 misiles evadidos)',
+
+  // despliegue de tropas
+  c_soldiers: '{n} soldados', c_must_land: 'Aterrizar',
+  c_troops_desc: 'Despliega tropas: aterriza en la plataforma de recogida para que suban ({n} asientos) y luego aterriza en la plataforma del puesto para que bajen. Sin lanzamientos aéreos.',
+  pay_troops: 'Por soldado',
+  toast_boarded: 'Soldado a bordo ({n}/{max})', toast_land_troops: 'Los soldados no saltan — aterriza en la plataforma del puesto para que bajen',
+  toast_troops_no_sling: 'Transporte de tropas — sin carga en eslinga',
+  hint_land_board: 'Aterriza en la plataforma — los soldados subirán', hint_land_troops: 'Aterriza en la plataforma del puesto para desembarcar a los soldados',
+
+  // tutorial
+  tut_howto: 'Cómo jugar', tut_skip: 'Saltar', tut_next: 'Siguiente', tut_back: 'Atrás', tut_go: '🚁 ¡A volar!', tut_step: 'PASO {n} / {m}',
+  tut_p1_t: 'Pilotar el helicóptero',
+  tut_p1_b: '<b>W / S</b> — colectivo: más o menos sustentación para subir o bajar.\n<b>Ratón</b> (haz clic en la pantalla para capturarlo) o <b>flechas</b> — cíclico: inclina para volar hacia delante, atrás y a los lados.\n<b>A / D</b> — pedales: gira el morro a izquierda o derecha.\n<b>V</b> cambia la cámara. <b>G</b> alterna entre vuelo Asistido (fácil, se nivela solo) y Realista. También funcionan mandos y HOTAS; configúralos en Ajustes.',
+  tut_p2_t: 'Contratos y carga',
+  tut_p2_b: 'Aterriza en la plataforma de la FOB y pulsa <b>B</b> para abrir el menú de base; después acepta un contrato.\nSigue la <b style="color:#6be07f">baliza verde</b> hasta la recogida. Aterriza en la plataforma para cargar cajas en la bodega, o vuela bajo sobre una caja y pulsa <b>F</b> para engancharla en la eslinga.\nLuego sigue la <b style="color:#ff8a1f">baliza naranja</b> hasta la zona de entrega del puesto.',
+  tut_p3_t: 'Entregar cajas',
+  tut_p3_b: '<b>Depositar</b>: aterriza en la zona, o baja la caja de la eslinga con suavidad y pulsa <b>E</b>. Es el método más seguro.\n<b>Lanzamiento</b>: pulsa <b>E</b> en vuelo. El arco muestra dónde cae: <b style="color:#6be07f">verde</b> segura, <b style="color:#ffb03a">ámbar</b> dañada, <b style="color:#ff5f4f">rojo</b> se rompe.\nSoltar bajo y rápido (entrega en caliente) paga ×1,5. Con la mejora de Paracaídas, pulsa <b>P</b> para armarlos y suelta por encima de 18 m.',
+  tut_p4_t: 'Desplegar soldados',
+  tut_p4_b: 'Los contratos marcados <b>👥 Aterrizar</b> llevan soldados en vez de cajas.\nAterriza en la plataforma de recogida y espera mientras suben los soldados.\nVuela al puesto y aterriza en su plataforma para que bajen. Los soldados no se pueden lanzar desde el aire ni llevar en la eslinga.',
+  tut_p5_t: 'Defensa antiaérea enemiga',
+  tut_p5_b: 'Cuanto más entregas, más sitios SAM enemigos aparecen. Se ven como <b style="color:#ff5f4f">triángulos rojos</b> en el mapa (<b>M</b>).\nUn radar SAM tiene que rastrearte unos segundos antes de disparar. Atento a los avisos <b>RADAR SAM RASTREANDO %</b> y <b>MISIL ENTRANTE</b>.\nRompe el blocaje volando bajo tras las colinas, o pulsa <b>Q</b> para lanzar bengalas. Las bengalas también engañan a los misiles ya en vuelo. Cómpralas en el Hangar.',
+  tut_p6_t: 'Base y progreso',
+  tut_p6_b: 'Aterrizar en la plataforma de la FOB reposta y repara. Pulsa <b>B</b> allí para mejoras, helicópteros nuevos y bengalas. Los depósitos también repostan.\nVigila las barras de combustible y daños. <b>M</b> abre el mapa y mantener <b>R</b> te lleva de vuelta a la FOB pagando una tarifa.\nGana dinero y XP para desbloquear regiones y hacer crecer tu base. ¡Buena suerte, piloto!',
 };

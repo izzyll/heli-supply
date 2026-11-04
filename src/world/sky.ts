@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 
+const _f = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _p = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 1, 0);
+
 export class Sky {
   sun: THREE.DirectionalLight;
   hemi: THREE.HemisphereLight;
@@ -52,8 +55,18 @@ export class Sky {
   }
 
   follow(pos: THREE.Vector3, cameraPos: THREE.Vector3): void {
-    this.sun.target.position.copy(pos);
-    this.sun.position.copy(pos).addScaledVector(this.sunDir, 400);
+    // Snap the shadow camera to whole shadow-map texels so shadows don't shimmer/crawl as we fly.
+    const sc = this.sun.shadow.camera;
+    const texel = (sc.right - sc.left) / this.sun.shadow.mapSize.x;
+    const fwd = _f.copy(this.sunDir).negate();
+    const right = _r.crossVectors(fwd, _up).normalize();
+    const up = _u.crossVectors(right, fwd);
+    const x = Math.round(pos.dot(right) / texel) * texel;
+    const y = Math.round(pos.dot(up) / texel) * texel;
+    const z = pos.dot(fwd);
+    const snapped = _p.copy(right).multiplyScalar(x).addScaledVector(up, y).addScaledVector(fwd, z);
+    this.sun.target.position.copy(snapped);
+    this.sun.position.copy(snapped).addScaledVector(this.sunDir, 400);
     this.dome.position.copy(cameraPos);
   }
 }

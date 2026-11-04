@@ -83,10 +83,13 @@ export class Terrain {
     const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nrm = new THREE.Vector3();
     const color = new THREE.Color();
     let p = 0;
+    // Visual only: sink underwater vertices an extra metre so the seabed never sits almost exactly at the
+    // water surface (that near-coplanar overlap z-fights and makes the water flicker at a distance).
+    const vh = (i: number, j: number) => { const h = this.heights[i + j * n]; return h < WATER_LEVEL ? h - 1.2 : h; };
     const pushTri = (ia: number, ja: number, ib: number, jb: number, ic: number, jc: number) => {
-      a.set(-HALF_WORLD + ia * CELL, this.heights[ia + ja * n], -HALF_WORLD + ja * CELL);
-      b.set(-HALF_WORLD + ib * CELL, this.heights[ib + jb * n], -HALF_WORLD + jb * CELL);
-      c.set(-HALF_WORLD + ic * CELL, this.heights[ic + jc * n], -HALF_WORLD + jc * CELL);
+      a.set(-HALF_WORLD + ia * CELL, vh(ia, ja), -HALF_WORLD + ja * CELL);
+      b.set(-HALF_WORLD + ib * CELL, vh(ib, jb), -HALF_WORLD + jb * CELL);
+      c.set(-HALF_WORLD + ic * CELL, vh(ic, jc), -HALF_WORLD + jc * CELL);
       e1.subVectors(b, a); e2.subVectors(c, a); nrm.crossVectors(e1, e2).normalize();
       const ny = Math.abs(nrm.y);
       const avgH = (a.y + b.y + c.y) / 3;
@@ -117,6 +120,8 @@ export class Terrain {
     wgeo.rotateX(-Math.PI / 2);
     this.water = new THREE.Mesh(wgeo, new THREE.MeshStandardMaterial({
       color: 0x2f6f8f, roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.85,
+      // pull the surface slightly towards the camera in depth so it wins against shallow seabed far away
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4,
     }));
     this.water.position.y = WATER_LEVEL;
     this.water.receiveShadow = true;

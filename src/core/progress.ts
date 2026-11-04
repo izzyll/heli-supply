@@ -29,6 +29,10 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'heli_utility', reward: 2000, check: (s) => s.helis.includes('utility') },
   { id: 'heli_heavy', reward: 10000, check: (s) => s.helis.includes('heavy') },
   { id: 'prestige_1', reward: 5000, check: (s) => s.prestiges >= 1 },
+  { id: 'soldiers_1', reward: 500, check: (s) => s.stats.soldiers >= 1 },
+  { id: 'soldiers_50', reward: 6000, check: (s) => s.stats.soldiers >= 50 },
+  { id: 'evaded_1', reward: 800, check: (s) => s.stats.missilesEvaded >= 1 },
+  { id: 'evaded_10', reward: 5000, check: (s) => s.stats.missilesEvaded >= 10 },
 ];
 
 export interface ProgressUI {
@@ -153,6 +157,21 @@ export class Progress {
     this.changed();
     this.save();
     return true;
+  }
+
+  /** Price of one flare cartridge. */
+  get flarePrice() { return 60 + 10 * this.s.level; }
+
+  /** Buy up to `n` flares, limited by free space in the dispenser. Returns the number bought. */
+  buyFlares(n: number): number {
+    const room = Math.max(0, this.up.flareCap - this.s.flares);
+    n = Math.min(n, room);
+    if (n <= 0 || !this.spend(n * this.flarePrice)) { if (n <= 0) this.ui.sfx('error'); return 0; }
+    this.s.flares += n;
+    this.ui.sfx('buy');
+    this.changed();
+    this.save();
+    return n;
   }
 
   buyHeli(id: HeliId): boolean {

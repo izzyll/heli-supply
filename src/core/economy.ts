@@ -25,6 +25,27 @@ export function deliveryXp(dist: number, weight: number, region: number): number
   return Math.round((20 + dist * 0.03) * (1 + weight * 0.5) * (1 + region * 0.3));
 }
 
+/** Seats per bay slot. A full load of troops pays TROOPS_PAY × a crate run, so each soldier earns TROOPS_PAY / SEATS_PER_BAY. */
+export const SEATS_PER_BAY = 4;
+export const TROOPS_PAY = 1.4;
+export const SOLDIER_PAY = TROOPS_PAY / SEATS_PER_BAY;
+
+// ---------- Enemy air defence ----------
+/** Number of SAM sites switched on for a given number of total deliveries. */
+export function threatSites(delivered: number): number {
+  return Math.floor(Math.max(0, delivered - 8) / 6);
+}
+export interface AAStats { range: number; lockTime: number; reload: number; salvo: number; damage: number }
+export function aaStats(delivered: number, region: number): AAStats {
+  return {
+    range: 450 + 120 * region + Math.min(300, 3 * delivered),
+    lockTime: Math.max(1.8, 5 - 0.02 * delivered - 0.4 * region),
+    reload: 12,
+    salvo: delivered >= 120 || region >= 3 ? 2 : 1,
+    damage: Math.min(55, 35 + delivered * 0.1 + region * 3),
+  };
+}
+
 export interface DeliveryInput {
   dist: number; weight: number; region: number;
   integrity: number;          // 0..1
@@ -38,6 +59,7 @@ export interface DeliveryInput {
   payoutMul: number;
   medals: number;
   lucky: boolean;
+  troops?: boolean;
 }
 export interface PayLine { key: string; value: string }
 export interface DeliveryResult { total: number; xp: number; lines: PayLine[]; bullseye: boolean; near: boolean }
@@ -61,9 +83,10 @@ export function scoreDelivery(d: DeliveryInput): DeliveryResult {
   if (d.inTime) add('pay_time', 1.2);
   add('pay_streak', 1 + Math.min(d.streak, 20) * 0.05);
   add('pay_bonus', d.payoutMul * medalMul(d.medals));
+  if (d.troops) add('pay_troops', SOLDIER_PAY);
   if (d.lucky) add('pay_lucky', 3);
   const total = Math.max(1, Math.round(base * mul));
-  const xp = Math.round(deliveryXp(d.dist, d.weight, d.region) * (0.5 + 0.5 * d.integrity) * (bullseye ? 1.5 : 1));
+  const xp = Math.round(deliveryXp(d.dist, d.weight, d.region) * (0.5 + 0.5 * d.integrity) * (bullseye ? 1.5 : 1) * (d.troops ? SOLDIER_PAY : 1));
   return { total, xp, lines, bullseye, near };
 }
 

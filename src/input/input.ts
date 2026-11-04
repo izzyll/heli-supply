@@ -13,7 +13,7 @@ export interface ControlState {
 }
 
 const KEY_ACTIONS: Record<string, ButtonAction> = {
-  KeyE: 'drop', KeyF: 'hook', KeyV: 'camera', KeyP: 'chute', KeyR: 'recover', KeyB: 'base', KeyM: 'map', KeyG: 'flightmode', Escape: 'pause',
+  KeyE: 'drop', KeyF: 'hook', KeyV: 'camera', KeyP: 'chute', KeyR: 'recover', KeyB: 'base', KeyM: 'map', KeyG: 'flightmode', KeyQ: 'flare', Escape: 'pause',
 };
 
 /** Merges keyboard, pointer-locked mouse (virtual stick) and gamepads/HOTAS into one ControlState. */

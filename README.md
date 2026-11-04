@@ -28,6 +28,7 @@ npm run build    # type-check + production build into dist/
 | Hook crate (sling) | F | X |
 | Release crate (sling first, then bay) | E | A |
 | Arm parachute | P | B |
+| Release flares | Q | bindable in Settings |
 | Camera 1st / 3rd person | V | Y |
 | Base menu (landed on FOB pad) | B | RB |
 | Map | M | Back |
@@ -38,6 +39,8 @@ npm run build    # type-check + production build into dist/
 **HOTAS:** open Settings, then click **Bind** next to an axis or button and move that control. Multiple devices are supported (for example a separate stick and throttle), with per-axis invert, a deadzone, and an expo curve. A live axis monitor helps you identify each control.
 
 ## Gameplay
+
+**Tutorial:** the first time you press Start, an illustrated six-step "How to play" walkthrough covers the controls, cargo, delivery methods, troops, SAM sites and flares, and the base. You can open it again any time with **📖 How to play** on the start screen.
 
 **Contracts**
 - Pick up crates at the FOB or a depot.
@@ -52,6 +55,24 @@ npm run build    # type-check + production build into dist/
   - **Red:** the crate will break.
 - **Hot drop:** a low, fast release (over 20 m/s) earns ×1.5 pay, at the risk of damaging the crate.
 - **Parachute drop:** needs the upgrade, and the release must be above 18 m. The crate descends slowly but drifts with the wind.
+
+**Troop deployment**
+- From pilot level 2, about 30% of contract offers move soldiers (2–8) instead of crates. They are marked 👥 and "Must land".
+- Land on the pickup pad and soldiers board one at a time. You get 4 seats per bay slot, so the scout carries 4.
+- Land on the outpost pad and they get off. Soldiers can't be airdropped or carried on the sling.
+- Each soldier pays 0.35× a crate run, so a full load pays 1.4×.
+
+**Enemy air defence (SAM sites)**
+- After about 8 deliveries, SAM sites start appearing near outposts and along supply routes in unlocked regions. One more is added every 6 deliveries.
+- Each site's range, lock-on speed and missile damage grow with total deliveries and with the region. From 120 deliveries, or in region 4, they fire two missiles.
+- A site has to keep its radar on you for a few seconds before it can fire. The HUD shows `SAM RADAR TRACKING %`, then `MISSILE LOCK`, then `MISSILE INBOUND` with a direction.
+- Flying low behind hills breaks line of sight, and landing makes you invisible to them.
+- Known sites show on the map (M) with their range ring. The minimap shows nearby sites, and the Radar upgrade extends how far it shows them.
+
+**Flares (countermeasures)**
+- Press Q to pop a pair of flares. Any radar tracking you loses its lock. Each missile already in the air has a 65% chance (+5% per upgrade tier) of chasing a flare instead.
+- Flares are ammo: buy them in the Hangar's Countermeasures section at the FOB. You start with 4.
+- The **Flare dispenser** upgrade adds 4 slots per tier and improves the decoy chance.
 
 **Crate break height** (Settings, 4–80 m, default 40 m): the free-fall height at which an unpadded crate breaks. Lower drops do proportionally less damage. The original tuning was 4 m.
 

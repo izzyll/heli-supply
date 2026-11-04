@@ -9,6 +9,7 @@ export interface HudData {
   stick: { x: number; y: number } | null;
   hp: Record<Component, number>;
   sling: boolean; bay: number; cap: number;
+  troops: boolean; flares: number; flareCap: number;
   chute: 'armed' | 'off' | 'locked';
   flightModel: 'assist' | 'realistic';
   contractTitle: string; contractSub: string; contractTimer: string; timerOk: boolean;
@@ -27,6 +28,8 @@ export interface MinimapData {
   sites: Site[]; targetId: string | null; level: number;
   caches: { x: number; z: number }[];
   crates: { x: number; z: number; mine: boolean }[];
+  sams: { x: number; z: number; hot: boolean }[];
+  missiles: { x: number; z: number }[];
 }
 
 const COMPS: Component[] = ['hull', 'engine', 'rotor', 'tail', 'skids'];
@@ -131,8 +134,9 @@ export class Hud {
     }
     set('h-wind', d.wind > 0.5 ? '🌬 ' + t('wind', { v: d.wind.toFixed(1) }) : '');
     const cargo = `<span class="${d.sling ? 'on' : ''}">🪝 ${t('cargo_sling')}: ${d.sling ? '1' : '0'}</span>
-      <span class="${d.bay ? 'on' : ''}">📦 ${t('cargo_bay')}: ${d.bay}/${d.cap}</span>
-      <span class="${d.chute === 'armed' ? 'on' : ''}">🪂 ${t(d.chute === 'armed' ? 'chute_armed' : d.chute === 'off' ? 'chute_off' : 'chute_locked')}</span>`;
+      <span class="${d.bay ? 'on' : ''}">${d.troops ? '👥 ' + t('cargo_seats') : '📦 ' + t('cargo_bay')}: ${d.bay}/${d.cap}</span>
+      <span class="${d.chute === 'armed' ? 'on' : ''}">🪂 ${t(d.chute === 'armed' ? 'chute_armed' : d.chute === 'off' ? 'chute_off' : 'chute_locked')}</span>
+      <span class="${d.flares ? 'on' : ''}" style="${d.flares ? '' : 'color:var(--bad)'}">🎆 ${t('cargo_flares')}: ${d.flares}/${d.flareCap}</span>`;
     const ce = this.q('#h-cargo');
     if (ce.dataset.v !== cargo) { ce.innerHTML = cargo; ce.dataset.v = cargo; }
     const warn = d.warnings.map((w) => `<div class="warn ${w.amber ? 'amber' : ''}">${w.text}</div>`).join('');
@@ -193,6 +197,17 @@ export class Hud {
     for (const c of m.crates) {
       const [px, py] = toS(c.x, c.z);
       g.fillStyle = c.mine ? '#ffffff' : '#bbbbbb'; g.fillRect(px - 2, py - 2, 4, 4);
+    }
+    for (const s of m.sams) {
+      let [px, py] = toS(s.x, s.z);
+      const dx = px - R, dy = py - R, dd = Math.hypot(dx, dy);
+      if (dd > R - 6) { if (!s.hot) continue; px = R + (dx / dd) * (R - 6); py = R + (dy / dd) * (R - 6); }
+      g.fillStyle = s.hot ? '#ff3c28' : '#b04030';
+      g.beginPath(); g.moveTo(px, py - 6); g.lineTo(px + 5, py + 4); g.lineTo(px - 5, py + 4); g.closePath(); g.fill();
+    }
+    for (const ms of m.missiles) {
+      const [px, py] = toS(ms.x, ms.z);
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(px, py, 2.5, 0, Math.PI * 2); g.fill();
     }
     // helicopter arrow
     g.translate(R, R);

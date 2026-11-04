@@ -1,8 +1,8 @@
 export type Lang = 'en' | 'es';
 export type AxisAction = 'collective' | 'pitch' | 'roll' | 'yaw';
-export type ButtonAction = 'drop' | 'hook' | 'camera' | 'chute' | 'recover' | 'base' | 'map' | 'pause' | 'flightmode';
+export type ButtonAction = 'drop' | 'hook' | 'camera' | 'chute' | 'recover' | 'base' | 'map' | 'pause' | 'flightmode' | 'flare';
 export const AXIS_ACTIONS: AxisAction[] = ['collective', 'pitch', 'roll', 'yaw'];
-export const BUTTON_ACTIONS: ButtonAction[] = ['drop', 'hook', 'camera', 'chute', 'recover', 'base', 'map', 'pause', 'flightmode'];
+export const BUTTON_ACTIONS: ButtonAction[] = ['drop', 'hook', 'camera', 'chute', 'recover', 'base', 'map', 'pause', 'flightmode', 'flare'];
 
 export interface AxisBinding { pad: string; index: number; invert: boolean }
 export interface ButtonBinding { pad: string; index: number }
@@ -31,6 +31,7 @@ export interface Stats {
   delivered: number; broken: number; bullseyes: number; hotDrops: number; chuteDrops: number;
   crashes: number; spins: number; jackpots: number; caches: number; bestStreak: number;
   flightTime: number; contracts: number;
+  soldiers: number; missilesEvaded: number; missileHits: number;
 }
 
 export interface SaveData {
@@ -53,6 +54,8 @@ export interface SaveData {
   achievements: string[];
   daily: { last: string; streak: number };
   lastSeen: number;
+  flares: number;
+  tutorialSeen: boolean;
   freeSpins: number;
   spinCounter: number;
   jackpot: number;

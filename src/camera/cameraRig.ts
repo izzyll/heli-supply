@@ -34,28 +34,29 @@ export class CameraRig {
     if (this.mode === 'cockpit') {
       cam.fov = 78;
       const eye = new THREE.Vector3(...heli.def.eye);
-      cam.position.copy(heli.worldPoint(eye)).addScaledVector(shake, 0.05);
-      const q = heli.quat.clone()
+      cam.position.copy(heli.renderPoint(eye)).addScaledVector(shake, 0.05);
+      const q = heli.rquat.clone()
         .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.lookYaw))
         .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), this.lookPitch - 0.12));
       cam.quaternion.copy(q);
       cam.near = 0.05;
     } else {
       cam.fov = 62;
-      cam.near = 0.3;
+      cam.near = 1; // camera is always ≥7 m from the heli; a bigger near plane gives far terrain/water much better depth precision
       const scale = heli.def.rotorR / 4.2;
       const d = this.dist * scale;
-      const yaw = heli.heading + this.lookYaw;
+      const hp = heli.rpos;
+      const yaw = heli.renderHeading() + this.lookYaw;
       const pitch = 0.22 + this.lookPitch;
       const offset = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch) * d, Math.sin(pitch) * d + 2 * scale, Math.cos(yaw) * Math.cos(pitch) * d);
-      const desired = heli.pos.clone().add(offset);
+      const desired = hp.clone().add(offset);
       const g = groundAt(desired.x, desired.z) + 1.5;
       if (desired.y < g) desired.y = g;
       if (!this.initialized) { this.pos.copy(desired); this.initialized = true; }
       const k = 1 - Math.exp(-6 * dt);
       this.pos.lerp(desired, k);
       cam.position.copy(this.pos).add(shake);
-      cam.lookAt(heli.pos.x, heli.pos.y + 1.2 * scale, heli.pos.z);
+      cam.lookAt(hp.x, hp.y + 1.2 * scale, hp.z);
     }
     cam.updateProjectionMatrix();
   }

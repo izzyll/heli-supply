@@ -1,6 +1,6 @@
 export type UpgradeKey =
   | 'engine' | 'armor' | 'fuel' | 'hover' | 'hook' | 'cargo'
-  | 'padding' | 'chute' | 'computer' | 'radar' | 'payout' | 'income';
+  | 'padding' | 'chute' | 'computer' | 'radar' | 'payout' | 'income' | 'flares';
 
 export interface UpgradeDef { key: UpgradeKey; max: number; base: number; growth: number; icon: string }
 
@@ -15,6 +15,7 @@ export const UPGRADES: UpgradeDef[] = [
   { key: 'chute', max: 6, base: 3000, growth: 1.5, icon: '🪂' },
   { key: 'computer', max: 2, base: 2000, growth: 2.5, icon: '🖥️' },
   { key: 'radar', max: 3, base: 800, growth: 2.2, icon: '📡' },
+  { key: 'flares', max: 5, base: 700, growth: 1.6, icon: '🎆' },
   { key: 'payout', max: 30, base: 500, growth: 1.2, icon: '💰' },
   { key: 'income', max: 30, base: 400, growth: 1.18, icon: '🏗️' },
 ];
@@ -37,6 +38,8 @@ export interface UpStats {
   payoutMul: number;
   incomeUp: number;
   radar: number;
+  flareCap: number;  // flares the helicopter can carry
+  flareEff: number;  // chance that a missile takes the decoy
 }
 
 /** Impact speed after falling from height h (m), with the crate's air drag (terminal ~50 m/s). */
@@ -68,5 +71,7 @@ export function computeUpStats(u: Record<string, number>, breakHeight = 4): UpSt
     payoutMul: 1 + 0.05 * g('payout'),
     incomeUp: g('income'),
     radar: g('radar'),
+    flareCap: 4 + 4 * g('flares'),
+    flareEff: 0.65 + 0.05 * g('flares'),
   };
 }

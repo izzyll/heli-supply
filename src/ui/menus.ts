@@ -2,7 +2,7 @@ import { t, money, setLang, getLang } from '../i18n';
 import { UPGRADES, UpgradeKey } from '../core/upgrades';
 import { HELIS, HeliId, PAINTS } from '../heli/defs';
 import { ACHIEVEMENTS, Progress } from '../core/progress';
-import { BASE_THRESHOLDS, PRESTIGE_LEVEL, medalMul, prestigeGain } from '../core/economy';
+import { BASE_THRESHOLDS, PRESTIGE_LEVEL, SEATS_PER_BAY, medalMul, prestigeGain } from '../core/economy';
 import { AXIS_ACTIONS, BUTTON_ACTIONS, AxisAction, ButtonAction } from '../core/state';
 import type { Contracts } from '../gameplay/contracts';
 import type { GamepadInput } from '../input/gamepad';
@@ -103,8 +103,9 @@ export class Menu {
       const a = c.active;
       html += `<div class="section-title">${t('c_active')}</div>
         <div class="card active">
-          <h3>📦 ${site(a.pickup)} → ${site(a.dest)}</h3>
-          <div class="row"><span class="tag w${a.weight}">${t('c_weight_' + a.weight)}</span><span>${t('c_crates', { n: a.crates })}</span><span>${(a.dist / 1000).toFixed(2)} km</span></div>
+          <h3>${a.kind === 'troops' ? '👥' : '📦'} ${site(a.pickup)} → ${site(a.dest)}</h3>
+          <div class="row">${a.kind === 'troops' ? `<span class="tag">${t('c_must_land')}</span><span>${t('c_soldiers', { n: a.crates })}</span>`
+            : `<span class="tag w${a.weight}">${t('c_weight_' + a.weight)}</span><span>${t('c_crates', { n: a.crates })}</span>`}<span>${(a.dist / 1000).toFixed(2)} km</span></div>
           <div class="row"><span>${t('c_progress', { d: a.delivered, r: a.resolved, t: a.crates })}</span><b style="color:var(--gold)">+${money(a.earned)}</b></div>
           <div class="row"><span></span><button class="btn danger small" id="c-abandon">${t('c_cancel')}</button></div>
         </div>`;
@@ -113,8 +114,10 @@ export class Menu {
       <p class="hud-sub">${t('c_capacity', { n: this.p.capacity })}</p><div class="grid">`;
     c.offers.forEach((o, i) => {
       html += `<div class="card">
-        <h3>${site(o.pickup)} → ${site(o.dest)}</h3>
-        <div class="row"><span class="tag w${o.weight}">${t('c_weight_' + o.weight)}</span><span>${t('c_crates', { n: o.crates })}</span><span class="tag">${t('c_region', { n: o.region + 1 })}</span></div>
+        <h3>${o.kind === 'troops' ? '👥 ' : ''}${site(o.pickup)} → ${site(o.dest)}</h3>
+        <div class="row">${o.kind === 'troops' ? `<span class="tag">${t('c_must_land')}</span><span>${t('c_soldiers', { n: o.crates })}</span>`
+          : `<span class="tag w${o.weight}">${t('c_weight_' + o.weight)}</span><span>${t('c_crates', { n: o.crates })}</span>`}<span class="tag">${t('c_region', { n: o.region + 1 })}</span></div>
+        ${o.kind === 'troops' ? `<p>${t('c_troops_desc', { n: this.p.capacity * SEATS_PER_BAY })}</p>` : ''}
         <div class="row"><span>${t('c_dist')}</span><b>${(o.dist / 1000).toFixed(2)} km</b></div>
         <div class="row"><span>${t('c_time')}</span><b>${Math.floor(o.timeLimit / 60)}:${String(o.timeLimit % 60).padStart(2, '0')}</b></div>
         <div class="row"><span>${t('c_pay')}</span><b style="color:var(--gold)">~${money(o.estPay)}</b></div>
@@ -132,7 +135,18 @@ export class Menu {
 
   private renderHangar(body: HTMLElement) {
     const p = this.p;
-    let html = `<div class="section-title">${t('h_upgrades')}</div><div class="grid">`;
+    const fp = p.flarePrice, room = Math.max(0, p.up.flareCap - p.s.flares);
+    const pack = Math.min(4, room), fill = room;
+    const canPack = pack > 0 && p.s.cash >= pack * fp, canFill = fill > 0 && p.s.cash >= fill * fp;
+    let html = `<div class="section-title">${t('h_counter')}</div><div class="grid">
+      <div class="card"><h3>🎆 ${t('h_flares')}</h3>
+        <p>${t('h_flares_d')}</p>
+        <div class="row"><span>${t('h_flares_have', { n: p.s.flares, m: p.up.flareCap })}</span><span>${t('h_flares_each', { cash: money(fp) })}</span></div>
+        <div class="row">
+          <button class="btn ${canPack ? 'primary' : ''}" data-flares="4" ${canPack ? '' : 'disabled'}>${t('h_flares_buy', { n: pack || 4 })} ${money((pack || 4) * fp)}</button>
+          <button class="btn ${canFill ? 'primary' : ''}" data-flares="${fill}" ${canFill ? '' : 'disabled'}>${t('h_flares_fill')} ${fill ? money(fill * fp) : ''}</button>
+        </div></div></div>
+      <div class="section-title">${t('h_upgrades')}</div><div class="grid">`;
     for (const u of UPGRADES) {
       const tier = p.upgradeTier(u.key);
       const price = p.upgradePrice(u.key);
@@ -175,6 +189,10 @@ export class Menu {
       const top = body.scrollTop;
       if (p.buyUpgrade(b.dataset.up as UpgradeKey)) { this.act.settingsChanged(); this.renderHangar(body); body.scrollTop = top; }
     }));
+    body.querySelectorAll<HTMLButtonElement>('[data-flares]').forEach((b) => b.addEventListener('click', () => {
+      const top = body.scrollTop;
+      if (p.buyFlares(Number(b.dataset.flares))) { this.renderHangar(body); body.scrollTop = top; }
+    }));
     body.querySelectorAll<HTMLButtonElement>('[data-heli]').forEach((b) => b.addEventListener('click', () => { this.act.selectHeli(b.dataset.heli as HeliId); this.renderHangar(body); }));
     body.querySelectorAll<HTMLButtonElement>('[data-buyheli]').forEach((b) => b.addEventListener('click', () => {
       if (p.buyHeli(b.dataset.buyheli as HeliId)) { this.act.selectHeli(b.dataset.buyheli as HeliId); this.renderHangar(body); }
@@ -196,6 +214,7 @@ export class Menu {
       ['st_hotDrops', String(s.stats.hotDrops)], ['st_chuteDrops', String(s.stats.chuteDrops)], ['st_bestStreak', String(s.stats.bestStreak)],
       ['st_contracts', String(s.stats.contracts)], ['st_caches', String(s.stats.caches)], ['st_crashes', String(s.stats.crashes)],
       ['st_spins', String(s.stats.spins)], ['st_jackpots', String(s.stats.jackpots)], ['st_flightTime', fmtTime(s.stats.flightTime)],
+      ['st_soldiers', String(s.stats.soldiers)], ['st_missilesEvaded', String(s.stats.missilesEvaded)], ['st_missileHits', String(s.stats.missileHits)],
       ['st_totalEarned', money(s.totalEarned)],
     ];
     body.innerHTML = `

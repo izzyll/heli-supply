@@ -35,7 +35,12 @@ export interface Crate {
   looseT: number;
   impactWin: number;
   impactPeak: number;
+  /** Pose before the last physics step (render interpolation). */
+  pp?: THREE.Vector3;
+  pq?: THREE.Quaternion;
 }
+
+const _rp = new THREE.Vector3(), _rq = new THREE.Quaternion(), _rq2 = new THREE.Quaternion();
 
 export const CRATE_DRAG = 0.004;
 export const CHUTE_DRAG = 0.8;
@@ -226,6 +231,12 @@ export class CrateManager {
   }
 
   preStep(dt: number, wind: THREE.Vector3, up: UpStats) {
+    // remember poses before the step, for render interpolation
+    for (const c of this.crates) {
+      const p = c.body.translation(), r = c.body.rotation();
+      (c.pp ??= new THREE.Vector3()).set(p.x, p.y, p.z);
+      (c.pq ??= new THREE.Quaternion()).set(r.x, r.y, r.z, r.w);
+    }
     for (const c of this.crates) {
       if (c.state !== 'free') continue;
       c.releaseT += dt;
@@ -297,13 +308,19 @@ export class CrateManager {
     this.remove(c);
   }
 
-  render(heli: Heli | null) {
+  render(heli: Heli | null, alpha = 1) {
     for (const c of this.crates) {
-      const p = c.body.translation(), r = c.body.rotation();
-      c.mesh.position.set(p.x, p.y, p.z);
-      c.mesh.quaternion.set(r.x, r.y, r.z, r.w);
+      const t = c.body.translation(), q = c.body.rotation();
+      const p = _rp.set(t.x, t.y, t.z);
+      _rq.set(q.x, q.y, q.z, q.w);
+      if (c.pp && c.pq && c.pp.distanceToSquared(p) < 100) {
+        p.lerpVectors(c.pp, p, alpha);
+        _rq.copy(_rq2.copy(c.pq).slerp(_rq, alpha));
+      }
+      c.mesh.position.copy(p);
+      c.mesh.quaternion.copy(_rq);
       if (c.rope && heli) {
-        const a = heli.worldPoint(heli.model.hookPoint);
+        const a = heli.renderPoint(heli.model.hookPoint);
         const b = new THREE.Vector3(0, c.size / 2, 0).applyQuaternion(c.mesh.quaternion).add(c.mesh.position);
         const pos = c.rope.geometry.getAttribute('position') as THREE.BufferAttribute;
         pos.setXYZ(0, a.x, a.y, a.z); pos.setXYZ(1, b.x, b.y, b.z); pos.needsUpdate = true;
@@ -312,7 +329,7 @@ export class CrateManager {
       if (open > 0 && !c.chuteMesh) c.chuteMesh = this.makeChute();
       if (c.chuteMesh) {
         if (open <= 0) { this.scene.remove(c.chuteMesh); c.chuteMesh = null; continue; }
-        c.chuteMesh.position.set(p.x, p.y + c.size / 2, p.z);
+        c.chuteMesh.position.set(p.x, p.y + c.size / 2, p.z); // interpolated pose
         c.chuteMesh.scale.setScalar(Math.max(0.15, open));
       }
     }

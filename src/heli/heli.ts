@@ -62,7 +62,14 @@ export class Heli {
   pos = new THREE.Vector3();
   quat = new THREE.Quaternion();
   vel = new THREE.Vector3();
+  /** Pose at the previous physics step, and the interpolated pose used for drawing. */
+  prevPos = new THREE.Vector3();
+  prevQuat = new THREE.Quaternion();
+  rpos = new THREE.Vector3();
+  rquat = new THREE.Quaternion();
   lastImpactSfx = 0;
+  /** What last damaged the airframe from outside (for the crash screen). */
+  lastHitBy: 'missile' | null = null;
   ownHandles = new Set<number>();
 
   constructor(public def: HeliDef, paint: Paint, private physics: Physics, scene: THREE.Scene, spawn: THREE.Vector3, yaw: number, up: UpStats) {
@@ -106,7 +113,14 @@ export class Heli {
     for (const c of Object.values(this.colliders)) this.ownHandles.add(c.handle);
     this.applyUpgrades(up, true);
     this.syncState();
+    this.snapPrev();
   }
+
+  /** Remember the current pose before a physics step, for render interpolation. */
+  savePrev() { this.prevPos.copy(this.pos); this.prevQuat.copy(this.quat); }
+
+  /** Drop interpolation history (teleports) so the model doesn't streak across the map. */
+  snapPrev() { this.savePrev(); this.rpos.copy(this.pos); this.rquat.copy(this.quat); }
 
   applyUpgrades(up: UpStats, refill = false) {
     const k = up.hpMul;
@@ -138,7 +152,7 @@ export class Heli {
     return s;
   }
 
-  repairAll() { this.hp = { hull: 1, engine: 1, rotor: 1, tail: 1, skids: 1 }; }
+  repairAll() { this.hp = { hull: 1, engine: 1, rotor: 1, tail: 1, skids: 1 }; this.lastHitBy = null; }
 
   // ---------------------------------------------------------------- physics
   onContact(self: Tag, other: Tag, force: number, up: UpStats) {
@@ -403,15 +417,19 @@ export class Heli {
   }
 
   /** Visual update each render frame. */
-  render(dt: number, cockpitView: boolean) {
-    this.model.root.position.copy(this.pos);
-    this.model.root.quaternion.copy(this.quat);
+  render(dt: number, cockpitView: boolean, alpha = 1) {
+    if (this.prevPos.distanceToSquared(this.pos) > 400) this.savePrev();
+    this.rpos.lerpVectors(this.prevPos, this.pos, alpha);
+    this.rquat.slerpQuaternions(this.prevQuat, this.quat, alpha);
+    this.model.root.position.copy(this.rpos);
+    this.model.root.quaternion.copy(this.rquat);
     this.rotorAngle += dt * this.rpm * 28;
     this.model.mainRotor.rotation.y = -this.rotorAngle;
     this.model.tailRotor.rotation.x = this.rotorAngle * 3.2;
     const fast = this.rpm > 0.6;
-    (this.model.disc.material as THREE.MeshBasicMaterial).opacity = 0.05 + this.rpm * 0.12;
-    this.model.blades.visible = !fast || Math.random() < 0.6;
+    // steady motion-blur disc at speed instead of randomly blinking the blades (that read as flicker)
+    (this.model.disc.material as THREE.MeshBasicMaterial).opacity = 0.05 + this.rpm * (fast ? 0.2 : 0.12);
+    this.model.blades.visible = !fast;
     this.model.cockpit.visible = cockpitView;
     // In cockpit view, hide parts that would clip the camera
     this.model.exterior.children.forEach((c) => { if (c !== this.model.mainRotor) c.visible = !cockpitView || !(c as THREE.Mesh).isMesh || c.position.z > 0.5 || c.position.y < this.def.skidY + 0.4; });
@@ -419,6 +437,17 @@ export class Heli {
 
   worldPoint(local: THREE.Vector3, out = new THREE.Vector3()): THREE.Vector3 {
     return out.copy(local).applyQuaternion(this.quat).add(this.pos);
+  }
+
+  /** Like worldPoint, but on the interpolated (drawn) pose. */
+  renderPoint(local: THREE.Vector3, out = new THREE.Vector3()): THREE.Vector3 {
+    return out.copy(local).applyQuaternion(this.rquat).add(this.rpos);
+  }
+
+  /** Heading of the drawn pose. */
+  renderHeading(): number {
+    const f = _w.set(0, 0, -1).applyQuaternion(this.rquat);
+    return Math.atan2(-f.x, -f.z);
   }
 
   forward(out = new THREE.Vector3()) { return out.set(0, 0, -1).applyQuaternion(this.quat); }
@@ -433,10 +462,12 @@ export class Heli {
     this.crashed = false;
     this.crashTimer = 0;
     this.rpm = 0;
+    this.lastHitBy = null;
     this.rotorContacts.clear();
     this.tailContacts.clear();
     this.applyUpgrades(up, true);
     this.syncState();
+    this.snapPrev();
   }
 
   dispose(scene: THREE.Scene) {

@@ -1,6 +1,7 @@
 /** All sounds are synthesised with WebAudio — no asset files needed. */
 export type SfxName = 'coin' | 'levelup' | 'achievement' | 'buy' | 'error' | 'crash' | 'crunch' | 'thud' | 'hook' | 'release'
-  | 'jackpot' | 'spin' | 'reelstop' | 'win' | 'alarm' | 'chute' | 'click';
+  | 'jackpot' | 'spin' | 'reelstop' | 'win' | 'alarm' | 'chute' | 'click'
+  | 'lock' | 'locked' | 'launch' | 'flare' | 'boom';
 
 export class Sfx {
   ctx: AudioContext | null = null;
@@ -99,6 +100,12 @@ export class Sfx {
       case 'release': this.tone(500, 0.08, 'square', 0.15); this.tone(330, 0.1, 'square', 0.15, 0.05); break;
       case 'chute': this.burst(0.5, 900, 0.35); break;
       case 'alarm': this.tone(880, 0.12, 'square', 0.1); this.tone(660, 0.12, 'square', 0.1, 0.14); break;
+      // radar warning receiver: short beep while a SAM tracks, solid tone when locked, warble on launch
+      case 'lock': this.tone(1400, 0.05, 'square', 0.07); break;
+      case 'locked': this.tone(1600, 0.35, 'square', 0.08); break;
+      case 'launch': for (let i = 0; i < 6; i++) this.tone(i % 2 ? 1100 : 1700, 0.09, 'square', 0.12, i * 0.1); break;
+      case 'flare': this.burst(0.12, 3500, 0.25); this.tone(900, 0.1, 'sine', 0.08, 0, 0.4); break;
+      case 'boom': this.burst(1.1, 500, 0.8); this.tone(60, 0.9, 'sawtooth', 0.3, 0, 0.4); break;
     }
   }
 }

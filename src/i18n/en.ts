@@ -60,7 +60,7 @@ export const en = {
   up_padding: 'Crate padding', up_padding_d: 'Crates survive harder landings.',
   up_chute: 'Parachutes', up_chute_d: 'Unlocks chute drops (release above 18 m). Higher tiers: faster opening, less wind drift.',
   up_computer: 'Drop computer', up_computer_d: 'T1: prediction includes wind. T2: shows impact speed.',
-  up_radar: 'Radar', up_radar_d: 'Shows bonus supply caches on the minimap.',
+  up_radar: 'Radar', up_radar_d: 'Shows bonus supply caches and enemy SAM sites from further away on the minimap.',
   up_payout: 'Contract bonus', up_payout_d: '+5% to all delivery pay.',
   up_income: 'Base logistics', up_income_d: '+$15/min passive base income (also while offline).',
 
@@ -123,4 +123,41 @@ export const en = {
 
   map_title: 'MAP', map_close: '[M] close', map_locked: 'Locked — level {n}',
   rec_title: 'Recovery', rec_desc: 'Recovery flight to FOB: -{cash}',
+
+  // enemy air defence & flares
+  warn_radar: 'SAM RADAR TRACKING — {p}%', warn_locked: 'MISSILE LOCK', warn_missile: 'MISSILE INBOUND — {dir}',
+  dir_ahead: 'AHEAD', dir_behind: 'BEHIND', dir_left: 'LEFT', dir_right: 'RIGHT',
+  hint_flares: '[Q] Flares ({n}) · fly low behind terrain to break the lock',
+  toast_missile_hit: '💥 Missile hit!', toast_no_flares: 'No flares — buy more in the Hangar', toast_aa_new: '⚠ Enemy air defence is growing — new SAM site spotted',
+  cargo_flares: 'Flares', cargo_seats: 'Seats', cr_cause_missile: 'Shot down by a SAM',
+  k_flare: 'Q — Release flares (decoy missiles)', bt_flare: 'Release flares',
+  h_counter: 'Countermeasures', h_flares: 'Decoy flares',
+  h_flares_d: 'Press [Q] to pop flares: SAM radars lose their lock and missiles in the air may chase the flare instead.',
+  h_flares_have: 'Carried: {n}/{m}', h_flares_each: '{cash} each', h_flares_buy: 'Buy {n}', h_flares_fill: 'Fill up',
+  up_flares: 'Flare dispenser', up_flares_d: '+4 flares carried and +5% chance each flare decoys a missile.',
+  st_missilesEvaded: 'Missiles evaded', st_missileHits: 'Missile hits taken', st_soldiers: 'Soldiers deployed',
+  ach_soldiers_1: 'Boots on the ground', ach_soldiers_50: 'Troop transport (50 soldiers)', ach_evaded_1: 'Not today', ach_evaded_10: 'Untouchable (10 missiles evaded)',
+
+  // troop deployment
+  c_soldiers: '{n} soldiers', c_must_land: 'Must land',
+  c_troops_desc: 'Deploy troops: land on the pickup pad so they can board ({n} seats), then land on the outpost pad to unload. No airdrops.',
+  pay_troops: 'Per soldier',
+  toast_boarded: 'Soldier aboard ({n}/{max})', toast_land_troops: 'Soldiers can’t jump — land on the outpost pad to unload',
+  toast_troops_no_sling: 'Troop transport — no sling load',
+  hint_land_board: 'Land on the pad — soldiers will board', hint_land_troops: 'Land on the outpost pad to unload soldiers',
+
+  // tutorial
+  tut_howto: 'How to play', tut_skip: 'Skip', tut_next: 'Next', tut_back: 'Back', tut_go: '🚁 Let’s fly!', tut_step: 'STEP {n} / {m}',
+  tut_p1_t: 'Flying the helicopter',
+  tut_p1_b: '<b>W / S</b> — collective: more or less lift, so you climb or descend.\n<b>Mouse</b> (click the screen to capture it) or <b>arrow keys</b> — cyclic: tilt to fly forward, back and sideways.\n<b>A / D</b> — pedals: turn the nose left or right.\n<b>V</b> switches the camera. <b>G</b> switches between Assisted (easy, self-levelling) and Realistic flight. Gamepads and HOTAS work too; bind them in Settings.',
+  tut_p2_t: 'Contracts and cargo',
+  tut_p2_b: 'Land on the FOB pad and press <b>B</b> to open the base menu, then accept a contract.\nFollow the <b style="color:#6be07f">green beacon</b> to the pickup. Land on the pad to load crates into the bay, or hover low over a crate and press <b>F</b> to hook it on the sling.\nThen follow the <b style="color:#ff8a1f">orange beacon</b> to the outpost drop zone.',
+  tut_p3_t: 'Delivering crates',
+  tut_p3_b: '<b>Set-down</b>: land in the zone, or lower the sling crate gently and press <b>E</b>. This is the safest method.\n<b>Airdrop</b>: press <b>E</b> while flying. The arc shows where it lands: <b style="color:#6be07f">green</b> safe, <b style="color:#ffb03a">amber</b> damaged, <b style="color:#ff5f4f">red</b> breaks.\nA low, fast release (hot drop) pays ×1.5. With the Parachute upgrade, press <b>P</b> to arm chutes and release above 18 m.',
+  tut_p4_t: 'Deploying soldiers',
+  tut_p4_b: 'Contracts marked <b>👥 Must land</b> carry soldiers instead of crates.\nLand on the pickup pad and stay put while the soldiers board.\nFly to the outpost and land on its pad to let them off. Soldiers can’t be airdropped or carried on the sling.',
+  tut_p5_t: 'Enemy air defence',
+  tut_p5_b: 'The more you deliver, the more enemy SAM sites appear. They show as <b style="color:#ff5f4f">red triangles</b> on the map (<b>M</b>).\nA SAM radar has to track you for a few seconds before it fires. Watch for <b>SAM RADAR TRACKING %</b> and <b>MISSILE INBOUND</b> warnings.\nBreak the lock by flying low behind hills, or press <b>Q</b> to pop flares. Flares also fool missiles already in the air. Buy them in the Hangar.',
+  tut_p6_t: 'Base and progress',
+  tut_p6_b: 'Landing on the FOB pad refuels and repairs you. Press <b>B</b> there for upgrades, new helicopters and flares. Depots refuel too.\nKeep an eye on the fuel and damage bars. <b>M</b> opens the map, and holding <b>R</b> flies you back to the FOB for a fee.\nEarn cash and XP to unlock new regions and grow your base. Good luck, pilot!',
 };

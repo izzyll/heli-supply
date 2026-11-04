@@ -5,7 +5,9 @@ import { BOUNDARY, CRATE_MASS, FIXED_DT, REGION_LEVELS, REGION_RADII, REGION_WIN
 import { clamp } from './core/rng';
 import { loadSave, wipeSave } from './core/save';
 import { Progress } from './core/progress';
-import { medalMul, scoreDelivery } from './core/economy';
+import { medalMul, scoreDelivery, SEATS_PER_BAY } from './core/economy';
+import { AASystem } from './gameplay/aa';
+import { Troops } from './gameplay/troops';
 import { detectLang, money, onLangChange, setLang, t } from './i18n';
 import { Physics } from './physics/world';
 import { createRawHeight } from './world/heightSource';
@@ -27,6 +29,7 @@ import { Sfx } from './audio/sfx';
 import { Hud, HudData } from './ui/hud';
 import { Menu, Tab } from './ui/menus';
 import { Slots } from './ui/slots';
+import { showTutorial } from './ui/tutorial';
 import { banner, confetti, floatCash, payCard, toast } from './ui/toast';
 
 type Mode = 'start' | 'fly' | 'menu' | 'crash' | 'map';
@@ -48,6 +51,8 @@ class Game {
   crates: CrateManager;
   predictor: DropPredictor;
   contracts: Contracts;
+  aa: AASystem;
+  troops: Troops;
   particles: Particles;
   sfx = new Sfx();
   hud!: Hud;
@@ -115,6 +120,11 @@ class Game {
     this.crates = new CrateManager(this.scene, this.physics, (x, z) => this.terrain.groundAt(x, z));
     this.predictor = new DropPredictor(this.scene);
     this.contracts = new Contracts(this.sites);
+    this.aa = new AASystem(this.scene, this.terrain, this.sites, this.particles, this.sfx, props);
+    this.aa.setThreat(this.s.stats.delivered, this.progress.regionsUnlocked);
+    this.aa.onHit = () => { this.s.stats.missileHits++; this.rig.addShake(2); toast(t('toast_missile_hit'), 'bad', 2); };
+    this.aa.onEvade = () => { this.s.stats.missilesEvaded++; this.progress.checkAchievements(); };
+    this.troops = new Troops(this.scene, (x, z) => this.terrain.groundAt(x, z));
     this.input = new Input(canvas, () => this.progress.s.settings);
     this.rig = new CameraRig(this.camera);
     this.rig.mode = this.progress.s.settings.camera;
@@ -239,13 +249,25 @@ class Game {
   }
 
   // ------------------------------------------------------------------ contracts
-  rerollOffers() { this.contracts.generate(this.s.level, this.progress.capacity, this.up.payoutMul * medalMul(this.s.medals)); }
+  get seats() { return this.progress.capacity * SEATS_PER_BAY; }
+  get troopsActive() { return this.contracts.active?.kind === 'troops'; }
+
+  rerollOffers() { this.contracts.generate(this.s.level, this.progress.capacity, this.up.payoutMul * medalMul(this.s.medals), this.seats); }
+
+  /** Soldiers wait beside the pickup pad until the helicopter lands there. */
+  troopSpot(pick: Site) {
+    const d = pick.padR + 5;
+    return { x: pick.x + Math.cos(pick.facing + Math.PI) * d, z: pick.z + Math.sin(pick.facing + Math.PI) * d };
+  }
 
   acceptContract(i: number) {
     if (this.contracts.active) return;
     const a = this.contracts.accept(i);
     const pick = this.site(a.pickup);
-    this.crates.stage(pick.yardX, pick.y, pick.yardZ, a.crates, a.weight, a.id);
+    if (a.kind === 'troops') {
+      const sp = this.troopSpot(pick);
+      this.troops.setWaiting(Math.min(a.staged, 8), sp.x, sp.z, pick.facing);
+    } else this.crates.stage(pick.yardX, pick.y, pick.yardZ, a.crates, a.weight, a.id);
     toast(t('toast_contract_new', { name: this.site(a.dest).name }), 'good');
     this.sfx.play('buy');
     if (this.contracts.offers.length === 0) this.rerollOffers();
@@ -257,6 +279,7 @@ class Game {
     const sl = this.crates.slung();
     if (sl && sl.contractId === a.id) this.crates.releaseSlung(false, this.up);
     this.crates.removeContract(a.id);
+    this.troops.clear();
     this.contracts.active = null;
     this.rerollOffers();
   }
@@ -290,6 +313,7 @@ class Game {
       banner(t('toast_contract_done', { cash: money(a.earned + bonus) }), `${a.delivered}/${a.crates} 📦`);
       this.sfx.play('levelup');
     } else toast(t('toast_contract_failed'), 'bad');
+    if (a.kind === 'troops') this.troops.setWaiting(0);
     this.contracts.active = null;
     this.rerollOffers();
     this.progress.save();
@@ -304,8 +328,9 @@ class Game {
     const r = scoreDelivery({
       dist: a.dist, weight: a.weight, region: a.region, integrity: c.integrity, zoneDist, zoneR: dest.padR, landed,
       hot, chute: c.usedChute && !landed, inTime: this.contracts.inTime, streak: this.s.streak,
-      payoutMul: this.up.payoutMul, medals: this.s.medals, lucky,
+      payoutMul: this.up.payoutMul, medals: this.s.medals, lucky, troops: a.kind === 'troops',
     });
+    if (a.kind === 'troops') this.s.stats.soldiers++;
     a.delivered++;
     a.resolved++;
     a.earned += r.total;
@@ -320,8 +345,16 @@ class Game {
     this.particles.emit('confetti', at.clone().add(new THREE.Vector3(0, 1, 0)), r.bullseye ? 120 : 50);
     this.sfx.play('coin');
     if (r.bullseye) this.sfx.play('achievement');
+    this.updateThreat();
     this.checkContractDone();
     this.progress.save();
+  }
+
+  /** More deliveries = more (and sharper) enemy air defence. */
+  updateThreat() {
+    const before = this.aa.activeSites.length;
+    this.aa.setThreat(this.s.stats.delivered, this.progress.regionsUnlocked);
+    if (this.aa.activeSites.length > before) toast(t('toast_aa_new'), 'bad', 3);
   }
 
   crateSettled(c: Crate) {
@@ -368,20 +401,31 @@ class Game {
       <h1>${t('title')}</h1>
       <p>${t('subtitle')}</p>
       <p style="font-size:13px">${t('start_hint')}</p>
-      <div class="keys" style="text-align:left;margin:14px 0">${['k_collective', 'k_yaw', 'k_cyclic', 'k_hook', 'k_drop', 'k_chute', 'k_cam', 'k_base', 'k_map', 'k_rec'].map((k) => `<div>${t(k)}</div>`).join('')}</div>
+      <div class="keys" style="text-align:left;margin:14px 0">${['k_collective', 'k_yaw', 'k_cyclic', 'k_hook', 'k_drop', 'k_chute', 'k_flare', 'k_cam', 'k_base', 'k_map', 'k_rec'].map((k) => `<div>${t(k)}</div>`).join('')}</div>
       <div><button class="btn small" data-l="en">English</button> <button class="btn small" data-l="es">Español</button></div>
+      <button class="btn" id="tut-btn">📖 ${t('tut_howto')}</button>
       <button class="btn primary" id="start-btn">${first ? t('start') : t('continue')}</button>
     </div>`;
     o.appendChild(m);
     m.querySelectorAll<HTMLButtonElement>('[data-l]').forEach((b) => b.addEventListener('click', () => {
       this.s.settings.lang = b.dataset.l as 'en' | 'es'; setLang(this.s.settings.lang); this.progress.save(); m.remove(); this.showStart();
     }));
-    m.querySelector('#start-btn')!.addEventListener('click', () => {
-      m.remove();
+    m.querySelector('#tut-btn')!.addEventListener('click', () => {
       this.sfx.unlock();
+      m.style.display = 'none';
+      showTutorial(() => { this.s.tutorialSeen = true; this.progress.save(); m.style.display = ''; });
+    });
+    const begin = () => {
       this.progress.welcome();
       if (!this.contracts.active) this.openMenu('contracts', true);
       else { this.mode = 'fly'; this.input.lock(); }
+    };
+    m.querySelector('#start-btn')!.addEventListener('click', () => {
+      m.remove();
+      this.sfx.unlock();
+      // first flight: walk through the controls and mechanics before taking off
+      if (!this.s.tutorialSeen) showTutorial(() => { this.s.tutorialSeen = true; this.progress.save(); begin(); });
+      else begin();
     });
   }
 
@@ -417,6 +461,7 @@ class Game {
     this.loseBayCargo();
     this.heli.respawn(new THREE.Vector3(f.x, f.y - this.heli.def.skidY + 0.12, f.z), -f.facing + Math.PI / 2, this.up);
     this.input.lever = 0;
+    this.aa.clearFlight();
     this.crashShown = false;
     this.crashHandled = false;
     this.serviced = true;
@@ -465,6 +510,14 @@ class Game {
       const [x1, y1] = toS(this.site(a.pickup).x, this.site(a.pickup).z), [x2, y2] = toS(this.site(a.dest).x, this.site(a.dest).z);
       g.setLineDash([8, 6]); g.strokeStyle = '#ffd25a'; g.lineWidth = 2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.setLineDash([]);
     }
+    // known enemy SAM sites with their engagement range
+    for (const sam of this.aa.activeSites) {
+      const [x, y] = toS(sam.x, sam.z);
+      g.strokeStyle = 'rgba(255,60,40,0.35)'; g.lineWidth = 1;
+      g.beginPath(); g.arc(x, y, (sam.stats.range / W) * S, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = '#ff3c28';
+      g.beginPath(); g.moveTo(x, y - 7); g.lineTo(x + 6, y + 5); g.lineTo(x - 6, y + 5); g.closePath(); g.fill();
+    }
     const [hx, hy] = toS(this.heli.pos.x, this.heli.pos.z);
     g.save(); g.translate(hx, hy); g.rotate(-this.heli.heading);
     g.fillStyle = '#fff'; g.beginPath(); g.moveTo(0, -12); g.lineTo(8, 9); g.lineTo(0, 4); g.lineTo(-8, 9); g.closePath(); g.fill();
@@ -477,6 +530,8 @@ class Game {
     this.progress.prestige();
     this.siteBuilder.setBaseLevel(this.progress.baseLevel);
     this.rebuildHeli();
+    this.aa.clearFlight();
+    this.aa.setThreat(this.s.stats.delivered, this.progress.regionsUnlocked);
     this.rerollOffers();
     this.applySettings();
   }
@@ -542,6 +597,7 @@ class Game {
       this.heli.body.addForce({ x: -Math.sign(p.x) * (Math.abs(p.x) > BOUNDARY ? m : 0), y: 0, z: -Math.sign(p.z) * (Math.abs(p.z) > BOUNDARY ? m : 0) }, true);
     }
     this.crates.preStep(FIXED_DT, this.wind, this.up);
+    this.heli.savePrev();
     this.physics.step();
     this.heli.postStep(FIXED_DT);
     this.crates.postStep(FIXED_DT);
@@ -569,8 +625,14 @@ class Game {
       else { this.s.settings.chuteArmed = !this.s.settings.chuteArmed; this.sfx.play('click'); }
     }
     if (this.heli.crashed) return;
+    if (pr.has('flare')) {
+      if (this.s.flares <= 0) { toast(t('toast_no_flares'), 'bad', 2); this.sfx.play('error'); }
+      else if (this.aa.releaseFlares(this.heli, this.up.flareEff)) { this.s.flares--; this.progress.changed(); }
+    }
+    const troops = this.troopsActive;
     if (pr.has('hook')) {
-      if (this.crates.slung()) { /* already carrying */ }
+      if (troops) toast(t('toast_troops_no_sling'), 'info', 2);
+      else if (this.crates.slung()) { /* already carrying */ }
       else {
         const c = this.crates.findHookable(this.heli, this.up);
         if (c) { this.crates.hook(c, this.heli); this.sfx.play('hook'); toast(t('toast_hooked'), 'good', 1.5); }
@@ -581,6 +643,7 @@ class Game {
       const armed = this.s.settings.chuteArmed;
       const a = this.contracts.active;
       if (this.crates.slung()) { this.crates.releaseSlung(armed, this.up); this.sfx.play('release'); }
+      else if (troops) { if (a && a.internal > 0) toast(t('toast_land_troops'), 'info', 2.5); }
       else if (a && a.internal > 0) {
         a.internal--;
         this.crates.dropInternal(this.heli, a.weight, a.id, armed, this.up);
@@ -604,6 +667,7 @@ class Game {
     const h = this.heli;
     const a = this.contracts.active;
     if (a) a.elapsed += dt;
+    this.aa.update(dt, h);
 
     // crash handling
     if (h.crashed && !this.crashHandled) {
@@ -614,7 +678,8 @@ class Game {
       this.s.stats.crashes++;
       this.progress.breakStreak();
       this.progress.checkAchievements();
-      this.crashCause = h.hits.some((x) => x.kind === 'water') ? t('cr_cause_water') : h.hp.rotor <= 0 ? t('cr_cause_rotor') : t('cr_cause_hull');
+      this.crashCause = h.hits.some((x) => x.kind === 'water') ? t('cr_cause_water') : h.lastHitBy === 'missile' ? t('cr_cause_missile')
+        : h.hp.rotor <= 0 ? t('cr_cause_rotor') : t('cr_cause_hull');
       const sl = this.crates.slung();
       if (sl) this.crates.releaseSlung(false, this.up);
       this.loseBayCargo();
@@ -663,7 +728,27 @@ class Game {
 
     // load / unload through the bay
     this.loadTimer = Math.max(0, this.loadTimer - dt);
-    if (a && h.landed && this.loadTimer <= 0) {
+    if (a && a.kind === 'troops') {
+      // soldiers only board and leave with the helicopter parked on the pad
+      if (h.landed && this.loadTimer <= 0) {
+        const pick = this.site(a.pickup), dest = this.site(a.dest);
+        const atPick = Math.hypot(h.pos.x - pick.x, h.pos.z - pick.z) < pick.padR + 4;
+        const destD = Math.hypot(h.pos.x - dest.x, h.pos.z - dest.z);
+        if (atPick && a.staged > 0 && a.internal < this.seats) {
+          a.staged--;
+          a.internal++;
+          this.troops.board(h.pos.x, h.pos.z);
+          this.loadTimer = 0.5;
+          this.sfx.play('hook');
+          toast(t('toast_boarded', { n: a.internal, max: this.seats }), 'good', 1.2);
+        } else if (destD < dest.padR && a.internal > 0) {
+          a.internal--;
+          this.loadTimer = 0.5;
+          this.troops.disembark(h.pos.x, h.pos.z, dest.x + Math.cos(dest.facing) * 30, dest.z + Math.sin(dest.facing) * 30);
+          this.deliver({ weight: 0, integrity: 1, usedChute: false, releaseHoriz: 0, contractId: a.id }, destD, true, h.pos.clone());
+        }
+      }
+    } else if (a && h.landed && this.loadTimer <= 0) {
       const pick = this.site(a.pickup), dest = this.site(a.dest);
       const nearPick = Math.hypot(h.pos.x - pick.yardX, h.pos.z - pick.yardZ) < 16 || Math.hypot(h.pos.x - pick.x, h.pos.z - pick.z) < pick.padR + 4;
       const destD = Math.hypot(h.pos.x - dest.x, h.pos.z - dest.z);
@@ -743,9 +828,10 @@ class Game {
     if (a) {
       const sl = this.crates.slung();
       const carrying = a.internal > 0 || (sl && sl.contractId === a.id);
-      const staged = this.crates.crates.some((c) => c.contractId === a.id && c.state === 'staged');
+      const staged = a.kind === 'troops' ? a.staged > 0 : this.crates.crates.some((c) => c.contractId === a.id && c.state === 'staged');
       if (!carrying && staged) {
         const p = this.site(a.pickup);
+        if (a.kind === 'troops') return { pos: new THREE.Vector3(p.x, p.y, p.z), label: p.name, id: p.id, kind: 'pickup' };
         return { pos: new THREE.Vector3(p.yardX, p.y, p.yardZ), label: p.name, id: p.id, kind: 'pickup' };
       }
       const d = this.site(a.dest);
@@ -758,12 +844,16 @@ class Game {
   renderFrame(dt: number) {
     const h = this.heli;
     const cockpit = this.rig.mode === 'cockpit';
-    h.render(dt, cockpit);
-    this.crates.render(h);
+    // physics runs at a fixed 60 Hz; draw between the last two steps so motion is smooth at any frame rate
+    const alpha = Math.min(1, this.acc / FIXED_DT);
+    h.render(dt, cockpit, alpha);
+    this.crates.render(h, alpha);
     const look = this.input.consumeLook();
     this.rig.update(dt, h, look, this.input.rightDown, (x, z) => this.terrain.groundAt(x, z));
     this.sky.follow(h.pos, this.camera.position);
     this.siteBuilder.update(dt);
+    this.aa.render(dt, h, this.time);
+    this.troops.update(dt);
 
     // FX: damage smoke, fire, rotor wash
     const eng = h.worldPoint(h.model.enginePoint);
@@ -792,7 +882,7 @@ class Game {
     let predHud: HudData['predict'] = null;
     const a = this.contracts.active;
     const sl = this.crates.slung();
-    const carrying = !!sl || (!!a && a.internal > 0);
+    const carrying = !!sl || (!!a && a.internal > 0 && a.kind !== 'troops');
     if (carrying && !h.landed && !h.crashed && h.agl > 1.5 && this.mode === 'fly') {
       let pos: THREE.Vector3, vel: THREE.Vector3;
       if (sl) { const p = sl.body.translation(), v = sl.body.linvel(); pos = new THREE.Vector3(p.x, p.y, p.z); vel = new THREE.Vector3(v.x, v.y, v.z); }
@@ -833,6 +923,16 @@ class Game {
       if (h.hp.rotor < 0.35) warnings.push({ text: t('warn_rotor') });
       if (Math.abs(h.pos.x) > BOUNDARY - 100 || Math.abs(h.pos.z) > BOUNDARY - 100) warnings.push({ text: t('warn_boundary'), amber: true });
       if (h.vs < -8 && h.agl < 25 && h.agl > 2) warnings.push({ text: t('warn_pull_up') });
+      // radar warning receiver
+      const w = this.aa.warning;
+      if (w.inbound > 0 && w.bearing !== null) {
+        const d = new THREE.Vector3(Math.sin(w.bearing), 0, Math.cos(w.bearing));
+        const f = d.dot(h.forward()), r = d.dot(new THREE.Vector3(1, 0, 0).applyQuaternion(h.quat));
+        const dir = Math.abs(f) > Math.abs(r) ? (f > 0 ? 'dir_ahead' : 'dir_behind') : (r > 0 ? 'dir_right' : 'dir_left');
+        warnings.push({ text: t('warn_missile', { dir: t(dir) }) });
+      } else if (w.locked) warnings.push({ text: t('warn_locked') });
+      else if (w.tracking > 0) warnings.push({ text: t('warn_radar', { p: Math.round(w.tracking * 100) }), amber: true });
+      if ((w.tracking > 0.3 || w.inbound > 0) && this.s.flares > 0) hints.push(t('hint_flares', { n: this.s.flares }));
       // hints
       if (this.atFobPad()) hints.push(t('hint_base'));
       if (!this.crates.slung()) {
@@ -845,7 +945,10 @@ class Game {
           if (near && tg.kind === 'pickup' && a.internal < this.progress.capacity) hints.push(t('hint_land_load'));
         }
       }
-      if (this.crates.slung() || (a && a.internal > 0)) hints.push(t('hint_drop'));
+      if (a && a.kind === 'troops') {
+        if (tg.kind === 'pickup' && a.internal < this.seats) hints.push(t('hint_land_board'));
+        else if (a.internal > 0 && !h.landed) hints.push(t('hint_land_troops'));
+      } else if (this.crates.slung() || (a && a.internal > 0)) hints.push(t('hint_drop'));
       if (h.fuel <= 0 && h.landed) hints.push(t('hint_recover'));
     }
 
@@ -870,7 +973,7 @@ class Game {
 
     let title = '', sub = '', timer = '', timerOk = false;
     if (a) {
-      title = `${t('c_crates', { n: a.crates })} · ${t('c_weight_' + a.weight)}`;
+      title = a.kind === 'troops' ? `👥 ${t('c_soldiers', { n: a.crates })} · ${t('c_must_land')}` : `${t('c_crates', { n: a.crates })} · ${t('c_weight_' + a.weight)}`;
       sub = (tg.kind === 'pickup' ? t('target_pickup', { name: tg.label }) : t('target_drop', { name: tg.label })) + '\n' +
         t('c_progress', { d: a.delivered, r: a.resolved, t: a.crates }) + `\n+${money(a.earned)}`;
       const left = Math.max(0, a.timeLimit - a.elapsed);
@@ -884,7 +987,8 @@ class Game {
     const data: HudData = {
       cash: s.cash, level: s.level, xp: s.xp, xpNeed: this.progress.xpNeed, medals: s.medals, income: this.progress.income, streak: s.streak,
       speed: h.speed, agl: h.agl, vs: h.vs, heading: (-h.heading * 180) / Math.PI, fuel: clamp(h.fuel / h.fuelMax, 0, 1), collective: s.settings.flightModel === 'realistic' ? this.input.lever * 2 : h.thrustFrac,
-      stick, hp: h.hp, sling: !!this.crates.slung(), bay: a?.internal ?? 0, cap: this.progress.capacity,
+      stick, hp: h.hp, sling: !!this.crates.slung(), bay: a?.internal ?? 0, cap: this.troopsActive ? this.seats : this.progress.capacity,
+      troops: this.troopsActive, flares: s.flares, flareCap: this.up.flareCap,
       flightModel: s.settings.flightModel,
       chute: this.up.chute <= 0 ? 'locked' : s.settings.chuteArmed ? 'armed' : 'off',
       contractTitle: title, contractSub: sub, contractTimer: timer, timerOk,
@@ -897,6 +1001,10 @@ class Game {
       x: h.pos.x, z: h.pos.z, heading: h.heading, sites: this.sites, targetId: tg.id, level: s.level,
       caches: this.up.radar > 0 ? this.caches.filter((c) => Math.hypot(c.x - h.pos.x, c.z - h.pos.z) < 600 + this.up.radar * 600) : [],
       crates: cratesMini,
+      sams: this.aa.activeSites
+        .filter((x) => x.state === 'tracking' || x.salvoLeft > 0 || Math.hypot(x.x - h.pos.x, x.z - h.pos.z) < 300 + this.up.radar * 400)
+        .map((x) => ({ x: x.x, z: x.z, hot: x.state === 'tracking' || x.salvoLeft > 0 })),
+      missiles: this.aa.missiles.map((m) => ({ x: m.pos.x, z: m.pos.z })),
     });
   }
 }
